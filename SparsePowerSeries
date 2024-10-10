@@ -1,0 +1,335 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cassert>
+using namespace std;
+
+const unsigned  MOD = 998244353;
+
+using  i64 = int64_t;
+using  u64 = uint64_t;
+using  u32 = uint32_t;
+
+template <uint32_t mod>  // MOD INT STORED IN MONTGOMERY FORM
+class  Mint
+{
+  private:
+    using  i32 = int32_t;    using  i64 = int64_t;
+    using  u32 = uint32_t;   using  u64 = uint64_t;
+
+    static constexpr u32  get_r()  {
+        u32  ret = mod;
+        for( i32 i=0 ; i<4 ; ++i )  ret *= 2 - mod * ret;
+        return  ret;
+    }
+
+    static constexpr u32  reduce( const u64 &b )  {
+        return ( b + u64( u32( b ) * u32( -r ) ) * mod ) >> 32;
+    }
+
+    // CLASS MEMBER DATA
+    static constexpr u32  r  = get_r();
+    static constexpr u32  n2 = -u64( mod ) % mod;
+	u32                   a;
+
+    static_assert( r * mod == 1, "invalid, r * mod != 1" );
+    static_assert( mod < (1 << 30), "invalid, mod >= 2 ^ 30" );
+    static_assert( (mod & 1) == 1, "invalid, mod % 2 == 0" );
+
+  public:
+    // CONSTRUCTORS
+    constexpr Mint() : a( 0 ) {}
+    constexpr Mint( i64 b )
+        : a( reduce( u64( b % mod + mod ) * n2 ) ) {};
+
+    // ARITMETIC OPERATORS
+    constexpr Mint &operator += ( const Mint &b )  {
+        if( i32( a += b.a - 2 * mod ) < 0 )   a += 2 * mod;
+        return  *this;
+    }
+    constexpr Mint &operator -= ( const Mint &b )  {
+        if( i32( a -= b.a ) < 0 )   a += 2 * mod;
+        return  *this;
+    }
+    constexpr Mint &operator *= ( const Mint &b )  {
+        a = reduce( u64( a ) * b.a );
+        return  *this;
+    }
+    constexpr Mint &operator /= ( const Mint &b )  {
+        *this *= b.inverse();
+        return  *this;
+    }
+
+    constexpr Mint operator  + (const Mint &b) const { return Mint(*this) += b; }
+    constexpr Mint operator  - (const Mint &b) const { return Mint(*this) -= b; }
+    constexpr Mint operator  * (const Mint &b) const { return Mint(*this) *= b; }
+    constexpr Mint operator  / (const Mint &b) const { return Mint(*this) /= b; }
+    constexpr Mint operator - () const {  return  Mint() - Mint(*this); }
+    Mint& operator         ++ ()  { return  *this += Mint( 1 ); }
+    Mint& operator         -- ()  { return  *this -= Mint( 1 ); }
+
+    constexpr Mint  pow( u64 n ) const  {
+        Mint  ret(  1 ), mul( *this );
+        while( n > 0 )  { if( n & 1 )  ret *= mul;   mul *= mul;  n >>= 1; }
+        return  ret;
+    }
+    constexpr Mint  inverse() const { return  pow( mod - 2 ); }
+    constexpr u32  get() const  {
+        u32  ret = reduce( a );
+        return  ret >= mod ? ret - mod : ret;
+    }
+    static constexpr u32  get_mod()  { return mod; }
+
+    constexpr bool operator == (const Mint &b) const {
+        return ( a >= mod ? a - mod : a ) == ( b.a >= mod ? b.a - mod : b.a );
+    }
+    constexpr bool operator != (const Mint &b) const  {
+        return ( a >= mod ? a - mod : a ) != ( b.a >= mod ? b.a - mod : b.a );
+    }
+    int  legendre()  { return  pow( ( mod - 1 ) >> 1 ).get(); }
+    int  tonelli()  {  // RETURNS -1 IF NO INV, ELSE CAST TO Mint
+        if( a == 0 )            return   0;
+        if( legendre() != 1 )   return  -1;
+        int  s = 0,  q = mod - 1;
+        while( q %2 == 0 )  { q >>= 1;  ++s; }
+        if( s == 1 )   return  pow( (mod + 1)>>2 ).get();
+        Mint  z = 2,  val = mod - 1;
+        for( ; z != Mint( 0 ) ; ++z )
+            if( val == z.legendre() )   break;
+        Mint  c = z.pow( q );    Mint  r = pow( ( q + 1 ) >> 1 );
+        Mint  t = pow( q );         int  m = s;
+        while( t.get() != 1 )  {
+            z = t*t;   int  i = 1;
+            for( ; i<s ; ++i )  {
+                if( z.get() == 1 )    break;
+                z *= z; }
+            auto  b = c.pow( 1 << (m - i - 1) );
+            r *= b;  c = b*b;  t *= c;  m = i; }
+        return  min( r.get(), mod - r.get() );
+    }
+
+    // INPUT AND OUTPUT
+    friend ostream &operator << ( ostream &os, const Mint &b )  {
+        return  os << b.get();
+    }
+    friend istream &operator >> ( istream &is, Mint &b )  {
+        int64_t  t;  is >> t;
+        b = Mint( t );
+        return  is;
+    }
+};
+using mint = Mint<MOD>;
+
+template < typename T >
+class SparseFormalPowerSeries
+{
+  public:
+    using  SFPS  = SparseFormalPowerSeries<T>;
+    using  elem  = pair< int, T >;
+
+	vector<elem>  a;
+
+  public:
+    SparseFormalPowerSeries( size_t sz = 0 )  { a.resize( sz, { 0, 0 } ); }
+    SparseFormalPowerSeries( const initializer_list<elem>  v )  { a = v; }
+    SparseFormalPowerSeries( const vector<elem>  &v )  { a = v; }
+    SparseFormalPowerSeries( size_t sz, elem val )  { a.resize( sz, val ); }
+    size_t  size() const { return a.size(); }
+    void  resize( size_t sz, elem m = { 0, 0 } )  { (*this).a.resize( sz, m ); }
+
+    elem  &operator [] ( size_t  x )  {
+        assert( x < this->a.size() );
+        return  a[x];
+    }
+    elem  &operator [] ( size_t  x ) const {
+        assert( x < this->a.size() );
+        return  a[x];
+    }
+    friend std::ostream &operator << ( std::ostream &os, const SFPS &p )  {
+        for( auto &v : p.a )   os << v.first << " " << v.second << '\n';
+        return  os;
+    }
+    friend istream& operator >> ( istream& is, SFPS &p )  {
+        for( auto &x : p.a )  { int64_t w;  T v;  is >> w >> v;  x = { w, v }; }
+        return  is;
+    }
+
+    SFPS  vectorToSFPS( const vector<T>& vec )  {
+        SFPS  ans;
+        for( size_t i=0 ; i<vec.size() ; ++i )
+           if( vec[i] != T( 0 ) )
+               ans.a.emplace_back( i, vec[i] );
+        return  ans;
+    }
+
+    vector<T>  SFPSToVector( int N )  {
+        vector<T>  ans( N, 0 );
+        for( auto &&[ idx, v ] : a )   ans[idx] = v;
+        return  ans;
+    }
+
+    void  mult( const SFPS& b, int N )  {
+        vector<T>  ans( N, 0 );
+        for( const auto &&[idx, v ] : a )
+            for( const auto &&[ idxb, vb ] : b.a )
+                if( idx + idxb < N )
+                    ans[idx + idxb] += v * vb;
+        *this = vectorToSFPS( ans );
+    }
+
+    void  deriv()  {
+        if( a.size() == 0 )  return;
+        size_t  idx = 0;
+        for( size_t i=0 ; i<a.size() ; ++i )
+            if( a[i].first > 0 )
+                a[idx++] = { a[i].first - 1,  a[i].second * a[i].first };
+        a.resize( idx );
+    }
+
+    void  integral()  {
+        for( size_t i=0 ; i<a.size() ; ++i )
+            a[i] = { a[i].first + 1,  a[i].second / ( a[i].first + 1 ) };
+    }
+
+    vector<T>  inv( int N )  {
+        vector<T>  ans( N, 0 );
+        ans[0] = 1;
+
+        for( int i=0 ; i<N ; ++i )
+            for( const auto &[idx, v ] : a )
+                if( idx == 0 )  ans[i] /= v;
+                else  {
+                    if( i + idx >= N )  break;
+                    ans[i + idx] -= ans[i] * v;
+                }
+        return  ans;
+    }
+
+    vector<T>  log( int n )  {
+        auto  g = SFPSToVector( n );  g[0] = 0;
+        vector<T>  inv( n, 1 );
+
+        for( int i=1 ; i<n ; ++i )  {
+            T  sum = 0;
+            for( auto &&[idx, c] : (*this).a )
+                if( idx  &&  idx <= i )
+                    sum += c * ( i - idx ) * g[i - idx];
+            if( i >= 2 )
+                sum *= ( inv[i] = -inv[MOD %i] * ( MOD/i ) );
+            g[i] -= sum;
+        }
+        return  g;
+    }
+
+    vector<T>  exp( int N )  {
+        if( N == 0 )   return vector<T>();
+        deriv();
+        for( auto& [idx, v] : a )  ++idx;
+        vector<T>  ans( N, 0 ),  inv( N, 1 );
+        ans[0] = 1;
+        for( int i=1 ; i<N ; ++i )  {
+            T  v = 0;
+            for( const auto& [idx, val] : a )
+                if( idx <= i )
+                    v += val * ans[i - idx];
+            // OPTIMIZATION:  CALC INVERSES ON THE FLY
+            ans[i] = v * ( inv[i] = ( i == 1 ? 1 : -inv[MOD %i] * ( MOD/i ) ) );
+        }
+        return  ans;
+    }
+
+    bool  sqrt( vector<T>& ans, int N )  {
+        static  T  M{ T( 3 ) * T( 2 ).inverse() };
+        if( a.size() == 0 )  {
+            ans.assign( N, 0 );
+            return  true;
+		}
+
+        int  zeros = a[0].first;
+        T    val   = a[0].second;
+        T    aInv  = val.inverse();
+        T    sqt   = T( val.tonelli() );
+
+        if( ( zeros & 1 )  ||  sqt*sqt != val )   return  false;
+
+        // FACTOR OUT FIRST NONZERO TERM, SCALE SO CONST TERM IS 1
+        for( auto &&[i, v] : a )  v *= aInv,  i -= zeros;
+
+        a.erase( a.begin() );
+        ans.assign( N - zeros, 0 );
+        vector<T>  inv( N - zeros, 1 );
+        ans[0] = 1;
+
+        for( int i=1 ; i<N - zeros ; ++i )  {
+            T  tmp = 0;
+            for( const auto &[idx, v] : a )  {
+                if( idx > i )  break;
+                tmp += v * ans[i - idx] * ( M * idx + MOD - i );
+            }
+            // OPTIMIZATION:  CALC INVERSES ON THE FLY
+            ans[i] = tmp*( inv[i] = ( i == 1 ? 1 : -inv[MOD %i]*( MOD/i ) ) );
+        }
+
+        for( auto &i : ans )  i *= sqt;
+        ans.resize( N );
+
+        for( int i=N-1 ; i>=0 ; --i )
+            if( i >= zeros/2 )   ans[i] = ans[i - zeros/2];
+            else  ans[i] = 0;
+
+        return  true;
+    }
+
+    vector<T>  pow( i64 M, int N )  {
+        vector<T>  ret( N, 0 );
+        if( M == 0 )   { ret[0] = 1;  return  ret; }
+
+        if( a.size() == 0  ||  a[0].first >= ( N + M - 1 ) / M )
+            return  ret;
+
+        i64  zeros = a[0].first;
+        T    A0    = a[0].second;
+        T    invA0 = A0.inverse();
+
+        // FACTOR OUT FIRST NONZERO TERM, SCALE SO CONST TERM IS 1
+        for( auto& [idx, v] : a )   idx -= zeros,  v *= invA0;
+        a.erase( a.begin() );
+        zeros *= M;
+
+        vector<T>  b( N - zeros ),  inv( N - zeros , 1 );
+        b[0] = 1;
+        T  expo = M + 1;
+
+        for( int i=1 ; i<N-zeros ; ++i )  {
+            T  v = 0;
+            for( const auto& [idx, val] : a )  {
+                if( idx > i )  break;
+                v += val * b[i - idx] * ( expo*idx - i );
+            }
+            // OPTIMIZATION:  CALC INVERSES ON THE FLY
+            b[i] = v * ( inv[i] = ( i == 1 ? 1 : -inv[MOD %i] * ( MOD/i ) ) );
+        }
+
+        A0 = A0.pow( M );
+        for( int i=0 ; i<N-zeros ; ++i )  ret[zeros + i] = b[i] * A0;
+        return  ret;
+    }
+};
+
+
+int  main()  {
+    ios::sync_with_stdio( false );
+    cin.tie( 0 );
+
+    int  N, K;
+    i64  M;
+    cin >> N >> K >> M;
+
+    SparseFormalPowerSeries<mint>  cs( K );
+    cin >> cs;
+
+    for( auto x : cs.pow( M, N ) )   cout << x << " ";
+    cout << '\n';
+
+    return 0;
+}

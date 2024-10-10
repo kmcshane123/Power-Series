@@ -127,7 +127,7 @@ class SparseFormalPowerSeries
     using  SFPS  = SparseFormalPowerSeries<T>;
     using  elem  = pair< int, T >;
 
-	vector<elem>  a;
+    vector<elem>  a;
 
   public:
     SparseFormalPowerSeries( size_t sz = 0 )  { a.resize( sz, { 0, 0 } ); }
@@ -243,11 +243,11 @@ class SparseFormalPowerSeries
 
     // SOLVES https://judge.yosupo.jp/problem/sqrt_of_formal_power_series_sparse
     bool  sqrt( vector<T>& ans, int N )  {
-        static  T  M{ T( 3 ) * T( 2 ).inverse() };
+        static T  M{ T( 3 ) * T( 2 ).inverse() };
         if( a.size() == 0 )  {
             ans.assign( N, 0 );
             return  true;
-		}
+        }
 
         int  zeros = a[0].first;
         T    val   = a[0].second;
@@ -316,7 +316,7 @@ class SparseFormalPowerSeries
         }
 
         A0 = A0.pow( M );
-        for( int i=0 ; i<N-zeros ; ++i )  ret[zeros + i] = b[i] * A0;
+        for( int i=0 ; i<N-zeros ; ++i )   ret[zeros + i] = b[i] * A0;
         return  ret;
     }
 };

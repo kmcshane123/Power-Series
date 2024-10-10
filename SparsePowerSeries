@@ -191,6 +191,7 @@ class SparseFormalPowerSeries
             a[i] = { a[i].first + 1,  a[i].second / ( a[i].first + 1 ) };
     }
 
+    // SOLVES https://judge.yosupo.jp/problem/inv_of_formal_power_series_sparse
     vector<T>  inv( int N )  {
         vector<T>  ans( N, 0 );
         ans[0] = 1;
@@ -205,6 +206,7 @@ class SparseFormalPowerSeries
         return  ans;
     }
 
+    // SOLVES https://judge.yosupo.jp/problem/log_of_formal_power_series_sparse
     vector<T>  log( int n )  {
         auto  g = SFPSToVector( n );  g[0] = 0;
         vector<T>  inv( n, 1 );
@@ -221,6 +223,7 @@ class SparseFormalPowerSeries
         return  g;
     }
 
+    // SOLVES https://judge.yosupo.jp/problem/exp_of_formal_power_series_sparse
     vector<T>  exp( int N )  {
         if( N == 0 )   return vector<T>();
         deriv();
@@ -238,6 +241,7 @@ class SparseFormalPowerSeries
         return  ans;
     }
 
+    // SOLVES https://judge.yosupo.jp/problem/sqrt_of_formal_power_series_sparse
     bool  sqrt( vector<T>& ans, int N )  {
         static  T  M{ T( 3 ) * T( 2 ).inverse() };
         if( a.size() == 0 )  {
@@ -280,6 +284,7 @@ class SparseFormalPowerSeries
         return  true;
     }
 
+    // SOLVES https://judge.yosupo.jp/problem/pow_of_formal_power_series_sparse
     vector<T>  pow( i64 M, int N )  {
         vector<T>  ret( N, 0 );
         if( M == 0 )   { ret[0] = 1;  return  ret; }
